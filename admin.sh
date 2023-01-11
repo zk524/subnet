@@ -10,8 +10,8 @@ if [[ $1 = "lsnet" ]]; then
     curl $URL -H X-ZT1-AUTH:$TOKEN -s
     
     elif [[ $1 = "lsusr" ]]; then
-    # dc exec zerotier sh zt lsusr
-    curl ${URL} -H X-ZT1-AUTH:${TOKEN} -s
+    # dc exec zerotier sh zt lsusr [NWID]
+    curl ${URL}${NWID}/member -H X-ZT1-AUTH:${TOKEN} -s
     
     elif [[ $1 = "auth" ]]; then
     # dc exec zerotier sh zt auth [MEMID]
