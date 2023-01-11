@@ -5,7 +5,7 @@ chmod +x admin.sh
 ln -s $PWD/admin.sh /zt
 
 apk add --no-cache --allow-untrusted curl
-if [ ! -f zerotier-one.pid ]; then
+if [ ! -f planet ]; then
     apk add --no-cache --allow-untrusted g++
     mkdir tmp
     mkdir -p controller.d/network
