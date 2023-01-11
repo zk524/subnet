@@ -1,15 +1,19 @@
 # !/bin/sh
 
 cd /var/lib/zerotier-one
-chmod +x admin.sh
-ln -s $PWD/admin.sh /zt
 
 apk add --no-cache --allow-untrusted curl
+if [ -f admin.sh ]; then
+    chmod +x admin.sh
+    ln -s $PWD/admin.sh /zt
+fi
+if [ ! -f identity.secret ]; then
+    zerotier-idtool generate identity.secret identity.public
+fi
 if [ ! -f planet ]; then
     apk add --no-cache --allow-untrusted g++
     mkdir tmp
     mkdir -p controller.d/network
-    zerotier-idtool generate identity.secret identity.public
     addr=$(curl ip.sb -s)/9993
     identity=`cat identity.public`
     NODEID=`echo $identity|cut -d ":" -f 1`
