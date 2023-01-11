@@ -1,0 +1,12 @@
+version: "3"
+
+services:
+  zerotier:
+    image: zyclonite/zerotier:1.8.6
+    container_name: zerotier
+    restart: unless-stopped
+    volumes:
+      - ./:/var/lib/zerotier-one
+    ports:
+      - "9993:9993/udp"
+    entrypoint: [ "sh", "/var/lib/zerotier-one/init.sh" ]
