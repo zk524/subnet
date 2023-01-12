@@ -1,15 +1,21 @@
 version: "3"
 
 services:
-  zerotier:
+  zerotier-client:
     image: zyclonite/zerotier:1.8.6
     container_name: zerotier-client
     volumes:
-      - ./:/var/lib/zerotier-one
+      - ./client:/var/lib/zerotier-one
+      - ./controller/planet:/var/lib/zerotier-one/planet
     network_mode: "host"
     devices:
       - /dev/net/tun
     cap_add:
       - NET_ADMIN
       - SYS_ADMIN
-    entrypoint: [ "zerotier-one", "-U" ]
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo "{\"settings\":{\"primaryPort\":\"9994\"}}" > /var/lib/zerotier-one/local.conf
+        zerotier-one -U

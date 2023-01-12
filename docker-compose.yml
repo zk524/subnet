@@ -6,7 +6,10 @@ services:
     container_name: zerotier
     restart: unless-stopped
     volumes:
-      - ./:/var/lib/zerotier-one
+      - ./controller:/var/lib/zerotier-one
+      - ./admin.sh:/z
+      - ./init.sh:/init.sh
     ports:
       - "9993:9993/udp"
-    entrypoint: [ "sh", "/var/lib/zerotier-one/init.sh" ]
+    entrypoint: [ "sh" ]
+    command: [ "init.sh" ]
