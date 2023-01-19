@@ -9,23 +9,22 @@ p, L = 2**255 - 0x13,  2**252 + 0x14def9dea2f79cd65812631a5cf5d3ed
 d = 0xa406d9dc56dffce7198e80f2eef3d13000e0149a8283b156ebd69b9426b2f146
 G1 = bytearray.fromhex("04000c07090105070e060a07030b0f07080004090d050909020a0e0907030f090c04080d01090d0d06020e0d0b03070d00080c1205010d120a0206120f070b12")
 G2 = bytearray.fromhex("01000307020100090302010d0003021206050407070605090407060d050407120b0a0907080b0a0909080b0d0a0908120c0f0e070d0c0f090e0d0c0d0f0e0d12")
-group = tuple([tuple((G1+G2)[i:i+4]) for i in range(0, 128, 4)]*10)
+group = tuple([tuple((G1+G2)[i:i+4]) for i in range(0, 128, 4)])*10
 
 
 class Salsa20:
     def __init__(self, key, iv):
-        k, v = [i[0] | (i[1] << 8) | (i[2] << 16) | (i[3] << 24) for i in key], [i[0] | (i[1] << 8) | (i[2] << 16) | (i[3] << 24) for i in iv]
+        k, v = [a | b << 8 | c << 16 | d << 24 for a, b, c, d in key], [a | b << 8 | c << 16 | d << 24 for a, b, c, d in iv]
         self.s = [0x61707865, k[0], k[1], k[2], k[3], 0x3320646e, v[0], v[1], 0, 0, 0x79622d32, k[4], k[5], k[6], k[7], 0x6b206574]
 
     def __call__(self, d):
         s = self.s[:]
         for a, b, c, r in group:
-            w = (s[b] + s[c]) & 0xffffffff
-            s[a] ^= w << r & 0xffffffff | (w >> (32 - r))
-        s = [(s[i] + self.s[i]) & 0xffffffff for i in range(16)]
+            w = s[b] + s[c] & 0xffffffff
+            s[a] ^= w << r & 0xffffffff | (w >> 32 - r)
         for i in range(16):
-            s[i] ^= d[i][0] | (d[i][1] << 8) | (d[i][2] << 16) | (d[i][3] << 24)
-            d[i] = (s[i] & 0xff, (s[i] & 0xff00) >> 8, (s[i] & 0xff0000) >> 16, (s[i] & 0xff000000) >> 24)
+            s[i] = s[i] + self.s[i] & 0xffffffff ^ (d[i][0] | d[i][1] << 8 | d[i][2] << 16 | d[i][3] << 24)
+            d[i] = s[i] & 0xff, (s[i] & 0xff00) >> 8, (s[i] & 0xff0000) >> 16, (s[i] & 0xff000000) >> 24
         self.s[8] += 1
         return d
 
@@ -37,12 +36,12 @@ class C25519:
         while s > 0:
             if s & 1:
                 a, b, c, e = (P[1] - P[0]) * (G[1] - G[0]) % p, (P[1] + P[0]) * (G[1] + G[0]) % p, P[3] * G[3] * d % p, 2 * P[2] * G[2] % p
-                P = ((b - a) * (e - c), (e + c) * (b + a), (e - c) * (e + c), (b - a) * (b + a))
+                P = (b - a) * (e - c), (e + c) * (b + a), (e - c) * (e + c), (b - a) * (b + a)
             a, b, c, e = (G[1] - G[0]) ** 2 % p, (G[1] + G[0]) ** 2 % p, G[3] ** 2 * d % p, 2 * G[2] ** 2 % p
-            G = ((b - a) * (e - c), (e + c) * (b + a), (e - c) * (e + c), (b - a) * (b + a))
+            G = (b - a) * (e - c), (e + c) * (b + a), (e - c) * (e + c), (b - a) * (b + a)
             s >>= 1
         z = pow(P[2], p - 2, p)
-        return int.to_bytes(P[1] * z % p | ((P[0] * z % p & 1) << 255), 32, "little")
+        return int.to_bytes(P[1] * z % p | (P[0] * z % p & 1) << 255, 32, "little")
 
     def pubED(secret):
         return C25519.point_to_int(int.from_bytes(sha512(secret).digest()[:32], "little") & ((1 << 254) - 8) | (1 << 254))
@@ -58,11 +57,11 @@ class C25519:
             return (x, y) if n & 1 else (y, x)
         n = bytearray(secret)
         n[0], n[31] = n[0] & 248, n[31] & 127 | 64
-        n = sum(2**i * ((n[i//8] >> (i % 8)) & 1) for i in range(256))
+        n = sum(2**i * (n[i//8] >> i % 8 & 1) for i in range(256))
         m = f(n)[0]
         n = m[0] * pow(m[1], p-2, p) % p
-        bits = [(n >> i) & 1 for i in range(256)]
-        return bytes([(sum([bits[i * 8 + j] << j for j in range(8)])) for i in range(32)])
+        b = [n >> i & 1 for i in range(256)]
+        return bytes([(sum([b[i * 8 + j] << j for j in range(8)])) for i in range(32)])
 
     def sign(secret, msg):
         h = sha512(secret).digest()
@@ -81,21 +80,21 @@ class C25519:
         for i in range(16, 1 << 19, 16):
             genmem[i:i+16] = s20(genmem[i-16:i])
         for i in range(0, 1 << 19, 4):
-            m, n = genmem[i+1][-1] % 8 * 2, (genmem[i+3][3] | (genmem[i+3][2] << 8) | (genmem[i+3][1] << 16) | (genmem[i+3][0] << 24)) % (1 << 18) * 2
+            m, n = genmem[i+1][-1] % 8 * 2, (genmem[i+3][3] | genmem[i+3][2] << 8 | genmem[i+3][1] << 16 | genmem[i+3][0] << 24) % (1 << 18) * 2
             genmem[n:n+2], digest[m:m+2] = digest[m:m+2], genmem[n:n+2]
             s20(digest)
         return bytes(sum(digest, ()))
 
-    def gen_keypair(satisfying, multi=False, n=0):
+    def gen_keypair(satisfying, n=0):
         secret = bytearray(os.urandom(64))
         pubED = C25519.pubED(secret[32:])
         while n := n+1:
             pub = C25519.pubDH(secret[:32]) + pubED
             digest = C25519.gen_keypair_digest(pub)
             if not satisfying or digest[0] < 17:
-                return [secret, pub, digest]
+                return secret, pub, digest
             else:
-                secret[8], secret[16] = (secret[8] + 1) % 0xff, (secret[16] - 1) % 0xff
+                secret[8], secret[16] = secret[8] + 1 & 0xff, secret[16] - 1 & 0xff
                 print(f"Try generate identity: {n}")
 
 
@@ -149,5 +148,4 @@ if __name__ == '__main__':
     nodeid = binascii.hexlify(identity[:5]).decode("utf-8")
     with open(f"controller/controller.d/network/{nodeid}000000.json", 'w') as f:
         f.write(f"{{\"authTokens\":[null],\"authorizationEndpoint\":\"\",\"capabilities\":[],\"clientId\":\"\",\"creationTime\":1600000000000,\"dns\":[],\"enableBroadcast\":true,\"id\":\"{nodeid}000000\",\"ipAssignmentPools\":[{{\"ipRangeEnd\":\"172.30.0.254\",\"ipRangeStart\":\"172.30.0.1\"}}],\"mtu\":2800,\"multicastLimit\":32,\"name\":\"net\",\"nwid\":\"{nodeid}000000\",\"objtype\":\"network\",\"private\":true,\"remoteTraceLevel\":0,\"remoteTraceTarget\":null,\"revision\":1,\"routes\":[{{\"target\":\"172.30.0.0/24\",\"via\":null}}],\"rules\":[{{\"etherType\":2048,\"not\":true,\"or\":false,\"type\":\"MATCH_ETHERTYPE\"}},{{\"etherType\":2054,\"not\":true,\"or\":false,\"type\":\"MATCH_ETHERTYPE\"}},{{\"etherType\":34525,\"not\":true,\"or\":false,\"type\":\"MATCH_ETHERTYPE\"}},{{\"type\":\"ACTION_DROP\"}},{{\"type\":\"ACTION_ACCEPT\"}}],\"rulesSource\":\"\",\"ssoEnabled\":false,\"tags\":[],\"v4AssignMode\":{{\"zt\":true}},\"v6AssignMode\":{{\"6plane\":false,\"rfc4193\":false,\"zt\":false}}}}")
-    print("nodeid: ", nodeid)
-    print("planet: ", binascii.hexlify(planet))
+    print("nodeid: ", nodeid, "\nplanet: ", binascii.hexlify(planet))
