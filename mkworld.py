@@ -47,21 +47,17 @@ class C25519:
         return C25519.point_to_int(int.from_bytes(sha512(secret).digest()[:32], "little") & ((1 << 254) - 8) | (1 << 254))
 
     def pubDH(secret):
-        def f(n):
-            if n == 1:
-                return (9, 1), (0x1900, 0x9660720)
-            a, b = f(n >> 1)
-            c = b if n & 1 else a
-            x = 4 * (b[0] * a[0] - b[1] * a[1]) ** 2 % p, 4 * (b[0] * a[1] - b[1] * a[0]) ** 2 * 9 % p
-            y = (c[0] ** 2 - c[1] ** 2) ** 2 % p, 4 * c[0] * c[1] * (c[0] ** 2 + 486662 * c[0] * c[1] + c[1] ** 2) % p
-            return (x, y) if n & 1 else (y, x)
         n = bytearray(secret)
         n[0], n[31] = n[0] & 248, n[31] & 127 | 64
-        n = sum(2**i * (n[i//8] >> i % 8 & 1) for i in range(256))
-        m = f(n)[0]
-        n = m[0] * pow(m[1], p-2, p) % p
-        b = [n >> i & 1 for i in range(256)]
-        return bytes([(sum([b[i * 8 + j] << j for j in range(8)])) for i in range(32)])
+        n = "{:b}".format(int(n[::-1].hex(), 16))
+        P = 9, 1, 0x1900, 0x9660720
+        for i in range(1, 255):
+            x, y = (P[2]*P[0]-P[3]*P[1])**2*4 % p, (P[2]*P[1]-P[3]*P[0])**2*36 % p
+            if n[i] == '1':
+                P = x, y, (P[2]**2-P[3]**2)**2 % p, (P[2]**2+486662*P[2]*P[3]+P[3]**2)*P[2]*P[3]*4 % p
+            else:
+                P = (P[0]**2-P[1]**2)**2 % p, (P[0]**2+486662*P[0]*P[1]+P[1]**2)*P[0]*P[1]*4 % p, x, y
+        return int.to_bytes(P[0] * pow(P[1], p-2, p) % p, 32, "little")
 
     def sign(secret, msg):
         h = sha512(secret).digest()
