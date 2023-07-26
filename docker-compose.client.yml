@@ -1,8 +1,9 @@
 version: "3"
+name: "zerotier-client"
 
 services:
   zerotier-client:
-    image: zyclonite/zerotier:1.8.6
+    image: zyclonite/zerotier:latest
     container_name: zerotier-client
     volumes:
       - ./client:/var/lib/zerotier-one

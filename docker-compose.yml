@@ -1,8 +1,9 @@
 version: "3"
+name: "zerotier"
 
 services:
   zerotier:
-    image: zyclonite/zerotier:1.8.6
+    image: zyclonite/zerotier:latest
     container_name: zerotier
     restart: unless-stopped
     volumes:
