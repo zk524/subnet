@@ -41,4 +41,6 @@ if [[ $1 = "lsnet" ]]; then
             curl -X DELETE ${URL}${nwid} -H X-ZT1-AUTH:${TOKEN} -s|sed -n '/nwid/p'
         fi
     done
+else
+    zerotier-cli $1
 fi
